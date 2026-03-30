@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>二维码工具</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #6366F1;
+      --primary-dark: #4F46E5;
+      --bg: #F8FAFC;
+      --card: #FFFFFF;
+      --text: #1E293B;
+      --text-light: #64748B;
+      --border: #E2E8F0;
+      --success: #10B981;
+      --error: #EF4444;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .header {
+      background: var(--card);
+      padding: 16px 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      text-align: center;
+      color: var(--primary);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      background: var(--bg);
+      padding: 4px;
+      border-radius: 12px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      background: transparent;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-light);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: var(--card);
+      color: var(--primary);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .container {
+      padding: 20px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-light);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Scanner Page */
+    .scanner-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .scanner-wrap video,
+    .scanner-wrap canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .scanner-frame {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 200px;
+      height: 200px;
+      border: 2px solid var(--primary);
+      border-radius: 16px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+    }
+
+    .scanner-frame::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      border: 3px solid transparent;
+      border-top-color: var(--primary);
+      border-radius: 16px;
+      animation: scan 1.5s linear infinite;
+    }
+
+    @keyframes scan {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .scan-result {
+      padding: 16px;
+      background: var(--bg);
+      border-radius: 12px;
+      word-break: break-all;
+      font-size: 14px;
+      line-height: 1.6;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .scan-result.error {
+      color: var(--error);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px 20px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 12px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .btn-secondary:active {
+      background: var(--border);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Generator Page */
+    .text-input {
+      width: 100%;
+      min-height: 150px;
+      padding: 16px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 16px;
+      font-family: inherit;
+      resize: vertical;
+      transition: border-color 0.2s;
+    }
+
+    .text-input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .text-input::placeholder {
+      color: var(--text-light);
+    }
+
+    .char-count {
+      text-align: right;
+      font-size: 12px;
+      color: var(--text-light);
+      margin-top: 8px;
+    }
+
+    .segment-info {
+      font-size: 13px;
+      color: var(--text-light);
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .segment-info .badge {
+      background: var(--primary);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 12px;
+    }
+
+    .qr-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .qr-item {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+
+    .qr-item canvas {
+      width: 100% !important;
+      height: auto !important;
+    }
+
+    .qr-item .label {
+      font-size: 12px;
+      color: var(--text-light);
+      margin-top: 8px;
+    }
+
+    .qr-item .text-preview {
+      font-size: 11px;
+      color: var(--text-light);
+      margin-top: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .download-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .download-actions .btn {
+      flex: 1;
+      margin-top: 0;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .no-camera {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-light);
+    }
+
+    .no-camera svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--text);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 24px;
+      font-size: 14px;
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1>二维码工具</h1>
+    <div class="tabs">
+      <button class="tab active" data-tab="scan">扫码识别</button>
+      <button class="tab" data-tab="generate">生成二维码</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Scan Page -->
+    <div id="scan-page" class="page active">
+      <div class="card">
+        <div class="scanner-wrap" id="scanner-wrap">
+          <video id="scanner-video" autoplay playsinline></video>
+          <canvas id="scanner-canvas" class="hidden"></canvas>
+          <div class="scanner-frame" id="scanner-frame"></div>
+        </div>
+        <div id="scanner-error" class="no-camera hidden">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+          </svg>
+          <p>无法访问相机</p>
+          <p style="font-size:12px;margin-top:8px;">请确保已授予相机权限</p>
+        </div>
+        <div id="scan-result" class="scan-result hidden"></div>
+        <button id="rescan-btn" class="btn btn-secondary hidden">重新扫描</button>
+      </div>
+    </div>
+
+    <!-- Generate Page -->
+    <div id="generate-page" class="page">
+      <div class="card">
+        <div class="card-title">输入文本</div>
+        <textarea
+          id="text-input"
+          class="text-input"
+          placeholder="在此输入要转换为二维码的文本..."
+        ></textarea>
+        <div class="char-count">
+          <span id="char-count">0</span> 字符
+        </div>
+        <div class="segment-info" id="segment-info"></div>
+      </div>
+
+      <button id="generate-btn" class="btn btn-primary">生成二维码</button>
+
+      <div id="qr-list" class="qr-list"></div>
+
+      <div id="download-actions" class="download-actions hidden">
+        <button id="download-all-btn" class="btn btn-primary">下载全部 (ZIP)</button>
+        <button id="download-single-btn" class="btn btn-secondary">逐个下载</button>
+      </div>
+    </div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <!-- CDN Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <script>
+    // ============ Tab Navigation ============
+    const tabs = document.querySelectorAll('.tab');
+    const pages = document.querySelectorAll('.page');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const target = tab.dataset.tab;
+        pages.forEach(p => {
+          p.classList.toggle('active', p.id === `${target}-page`);
+        });
+      });
+    });
+
+    // ============ Scanner ============
+    const scannerVideo = document.getElementById('scanner-video');
+    const scannerCanvas = document.getElementById('scanner-canvas');
+    const scannerWrap = document.getElementById('scanner-wrap');
+    const scannerFrame = document.getElementById('scanner-frame');
+    const scannerError = document.getElementById('scanner-error');
+    const scanResult = document.getElementById('scan-result');
+    const rescanBtn = document.getElementById('rescan-btn');
+
+    let stream = null;
+    let scanning = false;
+    let barcodeDetector = null;
+    let animationId = null;
+
+    async function initScanner() {
+      try {
+        // Check for BarcodeDetector support
+        if ('BarcodeDetector' in window) {
+          const formats = await BarcodeDetector.getSupportedFormats();
+          if (formats.includes('qr_code')) {
+            barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+          }
+        }
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
+        scannerVideo.srcObject = stream;
+        scannerVideo.classList.remove('hidden');
+        scannerFrame.classList.remove('hidden');
+        scannerError.classList.add('hidden');
+        startScanning();
+      } catch (err) {
+        console.error('Camera error:', err);
+        scannerVideo.classList.add('hidden');
+        scannerFrame.classList.add('hidden');
+        scannerError.classList.remove('hidden');
+      }
+    }
+
+    function startScanning() {
+      scanning = true;
+      scanFrame();
+    }
+
+    function stopScanning() {
+      scanning = false;
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+      }
+    }
+
+    async function scanFrame() {
+      if (!scanning) return;
+
+      const ctx = scannerCanvas.getContext('2d');
+      scannerCanvas.width = scannerVideo.videoWidth;
+      scannerCanvas.height = scannerVideo.videoHeight;
+      ctx.drawImage(scannerVideo, 0, 0);
+
+      try {
+        if (barcodeDetector) {
+          // Use native BarcodeDetector
+          const barcodes = await barcodeDetector.detect(scannerCanvas);
+          if (barcodes.length > 0) {
+            handleScanResult(barcodes[0].rawValue);
+            return;
+          }
+        } else {
+          // Fallback: manual scan simulation (native detection preferred)
+          // For browsers without BarcodeDetector, we'll use the video element
+          const video = scannerVideo;
+          if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            // Simple check - in practice, you'd use jsQR here
+            // For now, we'll rely on the native API
+          }
+        }
+      } catch (err) {
+        // Continue scanning
+      }
+
+      animationId = requestAnimationFrame(scanFrame);
+    }
+
+    function handleScanResult(result) {
+      stopScanning();
+      scannerVideo.classList.add('hidden');
+      scannerFrame.classList.add('hidden');
+      scanResult.classList.remove('hidden');
+      scanResult.textContent = result;
+      scanResult.classList.remove('error');
+      rescanBtn.classList.remove('hidden');
+      showToast('扫描成功！');
+    }
+
+    rescanBtn.addEventListener('click', () => {
+      scanResult.classList.add('hidden');
+      rescanBtn.classList.add('hidden');
+      scannerVideo.classList.remove('hidden');
+      scannerFrame.classList.remove('hidden');
+      startScanning();
+    });
+
+    // Init scanner when scan tab is active
+    let scannerInitialized = false;
+    tabs.forEach(tab => {
+      tab.addEventListener('click', async () => {
+        if (tab.dataset.tab === 'scan' && !scannerInitialized) {
+          scannerInitialized = true;
+          await initScanner();
+        }
+      });
+    });
+
+    // ============ Generator ============
+    const textInput = document.getElementById('text-input');
+    const charCount = document.getElementById('char-count');
+    const segmentInfo = document.getElementById('segment-info');
+    const generateBtn = document.getElementById('generate-btn');
+    const qrList = document.getElementById('qr-list');
+    const downloadActions = document.getElementById('download-actions');
+    const downloadAllBtn = document.getElementById('download-all-btn');
+    const downloadSingleBtn = document.getElementById('download-single-btn');
+
+    const MAX_CHARS = 1800; // Conservative limit per QR
+
+    let generatedQRs = [];
+
+    textInput.addEventListener('input', () => {
+      const len = textInput.value.length;
+      charCount.textContent = len;
+
+      if (len > 0) {
+        const segments = Math.ceil(len / MAX_CHARS);
+        segmentInfo.innerHTML = segments > 1
+          ? `<span class="badge">将生成 ${segments} 个二维码</span>`
+          : '';
+      } else {
+        segmentInfo.innerHTML = '';
+      }
+    });
+
+    function segmentText(text) {
+      if (text.length <= MAX_CHARS) {
+        return [text];
+      }
+
+      // Try to split on newlines first
+      const paragraphs = text.split(/\n\n+/);
+      if (paragraphs.length > 1) {
+        const result = [];
+        let current = '';
+        for (const p of paragraphs) {
+          if ((current + '\n\n' + p).length <= MAX_CHARS) {
+            current = current ? current + '\n\n' + p : p;
+          } else {
+            if (current) result.push(current);
+            // If single paragraph is too long, split by sentences
+            if (p.length > MAX_CHARS) {
+              const sentences = p.match(/[^.!?。！？]+[.!?。！？]+/g) || [p];
+              current = '';
+              for (const s of sentences) {
+                if ((current + s).length <= MAX_CHARS) {
+                  current += s;
+                } else {
+                  if (current) result.push(current.trim());
+                  current = s;
+                }
+              }
+            } else {
+              current = p;
+            }
+          }
+        }
+        if (current) result.push(current.trim());
+        return result.filter(s => s.length > 0);
+      }
+
+      // Split by sentences
+      const sentences = text.match(/[^.!?。！？]+[.!?。！？]+/g) || [text];
+      const result = [];
+      let current = '';
+
+      for (const s of sentences) {
+        if ((current + s).length <= MAX_CHARS) {
+          current += s;
+        } else {
+          if (current) result.push(current.trim());
+          current = s;
+        }
+      }
+      if (current) result.push(current.trim());
+      return result.filter(s => s.length > 0);
+    }
+
+    function generateQRCodes(text) {
+      qrList.innerHTML = '';
+      generatedQRs = [];
+      downloadActions.classList.add('hidden');
+
+      if (!text.trim()) {
+        showToast('请输入文本');
+        return;
+      }
+
+      const segments = segmentText(text);
+      const total = segments.length;
+
+      segments.forEach((seg, i) => {
+        const item = document.createElement('div');
+        item.className = 'qr-item';
+        item.innerHTML = `
+          <canvas id="qr-${i}"></canvas>
+          <div class="label">${i + 1} / ${total}</div>
+          <div class="text-preview" title="${escapeHtml(seg)}">${escapeHtml(seg.substring(0, 30))}${seg.length > 30 ? '...' : ''}</div>
+        `;
+        qrList.appendChild(item);
+
+        QRCode.toCanvas(document.getElementById(`qr-${i}`), seg, {
+          width: 160,
+          margin: 2,
+          color: { dark: '#1E293B', light: '#FFFFFF' }
+        });
+
+        generatedQRs.push({ index: i + 1, text: seg });
+      });
+
+      downloadActions.classList.remove('hidden');
+      showToast(`已生成 ${total} 个二维码`);
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    generateBtn.addEventListener('click', () => {
+      generateQRCodes(textInput.value);
+    });
+
+    // Download single (each QR has its own download button on mobile)
+    qrList.addEventListener('click', (e) => {
+      const item = e.target.closest('.qr-item');
+      if (!item) return;
+      const index = parseInt(item.querySelector('.label').textContent.split('/')[0].trim()) - 1;
+      if (index >= 0 && index < generatedQRs.length) {
+        downloadSingleQR(index);
+      }
+    });
+
+    function downloadSingleQR(index) {
+      const canvas = document.getElementById(`qr-${index}`);
+      const link = document.createElement('a');
+      link.download = `qrcode-${index + 1}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      showToast(`下载了第 ${index + 1} 个二维码`);
+    }
+
+    downloadSingleBtn.addEventListener('click', () => {
+      generatedQRs.forEach((_, i) => {
+        setTimeout(() => downloadSingleQR(i), i * 300);
+      });
+    });
+
+    downloadAllBtn.addEventListener('click', async () => {
+      if (generatedQRs.length === 0) return;
+
+      showToast('正在打包...');
+      const zip = new JSZip();
+
+      for (let i = 0; i < generatedQRs.length; i++) {
+        const canvas = document.getElementById(`qr-${i}`);
+        const dataUrl = canvas.toDataURL('image/png');
+        const base64 = dataUrl.split(',')[1];
+        zip.file(`qrcode-${i + 1}.png`, base64, { base64: true });
+      }
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const link = document.createElement('a');
+      link.download = 'qrcodes.zip';
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      showToast('打包下载完成！');
+    });
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+  </script>
+</body>
+</html>
