@@ -472,14 +472,23 @@
         return;
       }
 
+      const vw = scannerVideo.videoWidth;
+      const vh = scannerVideo.videoHeight;
+
+      // 扫描框在画面中心，是正方形
+      // 扫描框边长约为画面宽度的 50%
+      const scanSize = Math.min(vw, vh) * 0.5;
+      const offsetX = (vw - scanSize) / 2;
+      const offsetY = (vh - scanSize) / 2;
+
       const ctx = scannerCanvas.getContext('2d');
-      scannerCanvas.width = scannerVideo.videoWidth;
-      scannerCanvas.height = scannerVideo.videoHeight;
-      ctx.drawImage(scannerVideo, 0, 0);
+      scannerCanvas.width = scanSize;
+      scannerCanvas.height = scanSize;
+      ctx.drawImage(scannerVideo, offsetX, offsetY, scanSize, scanSize, 0, 0, scanSize, scanSize);
 
       try {
-        const imageData = ctx.getImageData(0, 0, scannerCanvas.width, scannerCanvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        const imageData = ctx.getImageData(0, 0, scanSize, scanSize);
+        const code = jsQR(imageData.data, scanSize, scanSize, {
           inversionAttempts: 'dontInvert'
         });
         if (code) {
