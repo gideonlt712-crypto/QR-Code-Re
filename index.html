@@ -402,6 +402,7 @@
   <!-- CDN Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
   <script>
     // ============ Tab Navigation ============
@@ -430,19 +431,10 @@
 
     let stream = null;
     let scanning = false;
-    let barcodeDetector = null;
     let animationId = null;
 
     async function initScanner() {
       try {
-        // Check for BarcodeDetector support
-        if ('BarcodeDetector' in window) {
-          const formats = await BarcodeDetector.getSupportedFormats();
-          if (formats.includes('qr_code')) {
-            barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
-          }
-        }
-
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment' }
         });
@@ -472,8 +464,13 @@
       }
     }
 
-    async function scanFrame() {
+    function scanFrame() {
       if (!scanning) return;
+
+      if (scannerVideo.readyState !== scannerVideo.HAVE_ENOUGH_DATA) {
+        animationId = requestAnimationFrame(scanFrame);
+        return;
+      }
 
       const ctx = scannerCanvas.getContext('2d');
       scannerCanvas.width = scannerVideo.videoWidth;
@@ -481,21 +478,13 @@
       ctx.drawImage(scannerVideo, 0, 0);
 
       try {
-        if (barcodeDetector) {
-          // Use native BarcodeDetector
-          const barcodes = await barcodeDetector.detect(scannerCanvas);
-          if (barcodes.length > 0) {
-            handleScanResult(barcodes[0].rawValue);
-            return;
-          }
-        } else {
-          // Fallback: manual scan simulation (native detection preferred)
-          // For browsers without BarcodeDetector, we'll use the video element
-          const video = scannerVideo;
-          if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            // Simple check - in practice, you'd use jsQR here
-            // For now, we'll rely on the native API
-          }
+        const imageData = ctx.getImageData(0, 0, scannerCanvas.width, scannerCanvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: 'dontInvert'
+        });
+        if (code) {
+          handleScanResult(code.data);
+          return;
         }
       } catch (err) {
         // Continue scanning
